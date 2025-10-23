@@ -52,7 +52,7 @@ module purge
 conda activate bcftools
 bcftools --version
 
-# Filter VCF for QUAL>30 & biallelic SNPs only
+# Filter VCF for only SNPs that pass depth filter set in $subset_tab
 cmd=(
     bcftools view
     --threads "$nthrd"

@@ -17,12 +17,15 @@ if (interactive()) {
   setwd(wd)
   # Input VCF
   vcf_file <- "master_SlaSLCT1FG3_1_AssemblyScaffolds_Repeatmasked.filt_QUAL30_bial.vcf.gz"
+  # Filter name
+  filter_name <- "MEAN_DP"
   # Output directory
   outdir <- "saccharina-speciation/"
 } else {
   line_args <- commandArgs(trailingOnly = T)
   vcf_file <- line_args[1]
-  outdir <- line_args[2]
+  filter_name <- line_args[2]
+  outdir <- line_args[3]
 }
 # Set number of cores for multi-threading
 my_cores <- system("echo $SLURM_CPUS_PER_TASK", intern = T)
@@ -33,20 +36,20 @@ if (my_cores != "") {
 }
 # Parse input
 vcf_base <- gsub("\\.vcf.*", "", (basename(vcf_file)))
-vcf_base_prefix <- gsub("\\..*", "", (vcf_base))
-vcf_base_suffix <- gsub(".*\\.", "", (vcf_base))
+vcf_base_prefix <- gsub("\\..*", "", vcf_base)
+vcf_base_suffix <- gsub(paste0(vcf_base_prefix, "."), "", vcf_base)
 depth_dist_file <- paste0(vcf_base, ".ldepth.mean")
 bcf_depth_file <- paste0(vcf_base, ".per_sample.stats")
 # Output
 filt_depth_base <- paste(
   vcf_base_prefix,
-  "depth_filt",
+  filter_name,
   vcf_base_suffix,
   sep = "."
 )
 filt_depth_tab_file <- paste0(filt_depth_base, ".tsv")
 filt_depth_vcf_file <- paste0(filt_depth_base, ".vcf.gz")
-filt_depth_plot_file <- paste0("mean_depth_dist.", vcf_base_suffix, ".png")
+filt_depth_plot_file <- paste0("depth_dist.", vcf_base_suffix, ".png")
 
 # Create list of sites to filter out with extreme low/high coverage (DP)
 # Read VCFtools --site-mean-depth file
@@ -131,17 +134,17 @@ filt_depth_tab <- depth_dist %>%
   filter(MEAN_DEPTH >= min_cutoff) %>%
   filter(MEAN_DEPTH <= max_cutoff) %>%
   select(CHROM, POS)
-cat(
-  paste(
-    "After filtering, kept",
-    dim(filt_depth_tab)[1],
-    "sites of",
-    dim(depth_dist)[1]
-  )
-)
 write_tsv(
   x = filt_depth_tab,
   file = filt_depth_tab_file,
   col_names = F,
   num_threads = my_cores
 )
+
+# Report variant stats and filter parameters
+msg1 <- paste("Filter:", min_cutoff, "< SITE_MEAN_DP <", max_cutoff)
+msg2 <- paste("Before filter:", dim(depth_dist)[1], "sites")
+msg3 <- paste("After filter:", dim(filt_depth_tab)[1], "sites")
+cat(msg1, msg2, msg3, sep = "\n")
+cat("\n")
+
